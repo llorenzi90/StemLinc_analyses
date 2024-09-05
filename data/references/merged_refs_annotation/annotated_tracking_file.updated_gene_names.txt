@@ -1,0 +1,1 @@
+/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/references/mouse/annotation/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt
