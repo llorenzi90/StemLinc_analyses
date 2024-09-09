@@ -1,0 +1,463 @@
+---
+title: "Transcriptome characterization report"
+author: "Lucia Lorenzi"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true  
+params:
+  gtf_path: "data/raw/LSK_StemLinc.combined.gtf"
+  tracking_path: "data/raw/LSK_StemLinc.tracking"
+  outdir: "outputs/transcriptome_characterization"
+  ref_data: 'data/RData/merged_ref_annot_GTF.RData'
+  prefix: "null"
+
+---
+
+```{r setup, message=FALSE,warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE)
+options(scipen = 999) 
+# Load packages---------------------------
+# load up the packages we will need:  (uncomment as required)
+require(tidyverse)
+require(data.table)
+library(rtracklayer)
+library(bedtoolsr)
+library(ggplot2)
+library(trastools)
+# load functions from source----
+source("scripts/plotting_helper_functions.R")
+```
+
+```{r load_data}
+### get input params into variables ----
+tracking_path <- params$tracking_path
+gtf_path <- params$gtf_path
+ref_data_path <- params$ref_data
+sampname=params$prefix
+if(sampname=="null") sampname=gsub(".gtf","",basename(gtf_path))
+### load reference data ----
+load(ref_data_path)
+### read assembly gtf ----
+gtf=readGFF(gtf_path)
+### read assembly tracking file ----
+tracking=read.table(tracking_path)
+### define number of samples and samples columns ----
+Nsamps=ncol(tracking)-4
+cols_samps=colnames(tracking)[5:ncol(tracking)]
+## define prefix and outdir for plots ----
+outdir <- paste0(params$outdir,"/",sampname,"/")
+## create output directory and set prefix for out files ----
+dir.create(outdir)
+pref=paste0(outdir,sampname)
+
+print(paste0("outdir: ",outdir))
+
+```
+
+## Basic transcriptome characterization
+
+This section extracts the basic numbers from the transcriptome assembly: N transcripts, N genes,
+N exons, etc.  
+Plots classcode distribution, number of samples per classcode and lengths per chromosome
+
+
+```{r basic_tr_ch1, include=FALSE}
+tchars <- summarize_GTF_info(gtf)
+tchars_refGTF=summarize_GTF_info(refGTF)
+```
+
+
+```{r basic_tr_ch2}
+#tchars <- summarize_GTF_info(gtf)
+
+# Classify genes in annotated and novel ----
+### Define overlapping and non overlapping class codes ----
+
+tracking$overlap_Ref=tracking$V4%in%overlapping_class_codes
+tracking$Nexons=tchars$EPT$N_exons[match(tracking$V1,
+                                         tchars$EPT$transcript_id)]
+
+# Add some data to tinfo ----
+overlap_ref=table(tracking$overlap_Ref)
+names(overlap_ref)=c("N_NOoverlapRef","N_overlapRef")
+N_per_cc=as.list(table(tracking$V4))
+names(N_per_cc)[names(N_per_cc)=="="] <- "equal"
+names(N_per_cc)=paste0("N_",names(N_per_cc))
+Perc_per_cc=as.list(table(tracking$V4)/nrow(tracking)*100)
+names(Perc_per_cc)[names(Perc_per_cc)=="="] <- "equal"
+
+names(Perc_per_cc)=paste0("Percent_",names(Perc_per_cc))
+
+# add N samples
+tracking$Nsamps=get_n_samples_per_transcript_from_tracking(tracking, cols_samps)
+Nsamps_dist=table(tracking$Nsamps)
+names(Nsamps_dist)=paste0("N_samples_",names(Nsamps_dist))
+
+perc_Nsamps_dist=round(prop.table(Nsamps_dist),2)*100
+names(perc_Nsamps_dist)=paste0("perc_",names(perc_Nsamps_dist))
+Nsamps_dist=as.list(Nsamps_dist)
+perc_Nsamps_dist=as.list(perc_Nsamps_dist)
+
+# Overlap_ref ----
+perc_olRef=sum(tracking$overlap_Ref)/nrow(tracking)*100
+
+# Overlap_ref/exonic type ----
+exonic_type_ol=table(tracking$Nexons[tracking$overlap_Ref]==1)
+frac_exonic_type_ol=exonic_type_ol/sum(exonic_type_ol)
+exonic_type_no=table(tracking$Nexons[!tracking$overlap_Ref]==1)
+frac_exonic_type_no=exonic_type_no/sum(exonic_type_no)
+
+names(frac_exonic_type_ol)=c("frac_multiexonic_olRef",
+                        "frac_monoexonic_olRef")
+
+names(frac_exonic_type_no)=c("frac_multiexonic_noRef",
+                        "frac_monoexonic_noRef")
+
+# N samps overlap ref
+Nsamps_ol=table(tracking$Nsamps[tracking$overlap_Ref])
+names(Nsamps_ol)=paste0("olRef_Nsamps_",names(Nsamps_ol))
+
+Nsamps_no=table(tracking$Nsamps[!tracking$overlap_Ref])
+names(Nsamps_no)=paste0("noRef_Nsamps_",names(Nsamps_no))
+
+# write transcriptome info table ----
+tinfo=tchars$summary
+tinfo$Nsamps=Nsamps
+tinfo$perc_olRef=round(perc_olRef)
+
+tinfo=c(tinfo,N_per_cc,Perc_per_cc,Nsamps_dist,perc_Nsamps_dist,
+        as.list(Nsamps_ol),as.list(Nsamps_no),
+        as.list(frac_exonic_type_ol),as.list(frac_exonic_type_no))
+
+tinfo
+
+## write basic info ----
+write.csv(as.data.frame(tinfo),paste0(pref,"_transcriptome_info.csv"),quote = F,row.names = F)
+
+```
+
+### Plot length distribution
+```{r length_dist}
+# Plots transcriptome ----
+### Length of features ----
+# transcripts
+transcript_lengths=compute_per_transcript_exonic_length(gtf)
+
+transcript_lengths$type="transcript"
+
+# exons
+unique_exons_lengths=tchars$exons_info%>%filter(!duplicated(exon_id))%>%dplyr::select(exon_id,length)
+unique_exons_lengths$type="exon"
+colnames(unique_exons_lengths)[2]="len"
+
+# introns
+unique_introns_lengths=tchars$introns_info%>%filter(!duplicated(intron_id))%>%dplyr::select(intron_id,length)
+unique_introns_lengths$type="intron"
+colnames(unique_introns_lengths)[2]="len"
+
+# genes
+gene_exonic_lengths=compute_gene_non_redundant_exonic_length(gtf)
+gene_exonic_lengths$type="gene"
+colnames(gene_exonic_lengths)[2]="len"
+
+# gather all lengths 
+all_lengths=rbind(transcript_lengths[,2:3],
+                  unique_exons_lengths[,2:3],
+                  unique_introns_lengths[,2:3],
+                  gene_exonic_lengths[,2:3])
+all_lengths$type=factor(all_lengths$type,levels=c("exon","transcript","gene","intron"))
+ggplot(all_lengths,aes(x=type,y=len)) +
+  geom_violin()+geom_boxplot(width=0.2) +
+  scale_y_log10() +
+  theme_classic() + ggtitle("(exonic) length distribution per feature type")
+
+```
+
+### Plot class code distribution  
+```{r cc_dist}
+ggplot(tracking,aes(x=V4)) +geom_bar() +ggtitle("gffcompare classcode distribution") + xlab("classcode")
+
+# fraction
+tracking %>% 
+  count(V4) %>% 
+  mutate(fraction = n / nrow(tracking)) -> frac_cc
+
+ggplot(frac_cc, aes(x = V4, y = fraction)) + geom_bar(stat = "identity") + xlab("classcode") +
+  ggtitle("gffcompare classcode distribution")
+
+```
+```{r cc_Exons}
+tracking %>% 
+  count(V4,Nexons!=1) %>% 
+  mutate(fraction = n / nrow(tracking)) -> frac_cc
+colnames(frac_cc)[2]="multiexonic"
+
+ggplot(frac_cc, aes(x = V4, fill=multiexonic, y = fraction)) + geom_bar(stat = "identity") + xlab("classcode") +
+  ggtitle("gffcompare classcode distribution and exonic number")
+```
+
+### Plot N samples per classcode  
+```{r N_samps_cc}
+tracking %>% 
+  count(V4,Nsamps) %>% 
+  mutate(fraction = n / nrow(tracking)) -> frac_cc
+
+ggplot(frac_cc, aes(x = V4, fill=as.factor(Nsamps), y = fraction)) + geom_bar(stat = "identity") + xlab("classcode") +
+  ggtitle("gffcompare classcode distribution and number of samples")
+```
+
+
+## Overlap with reference and number of exons  
+This section focuses on exonic/monoexonic fractions and overlap with reference   
+```{r ol_ref_nexons_transcript_level}
+ggplot(tracking,aes(x=overlap_Ref,fill=Nexons>1)) +
+  geom_bar()+ theme_classic() + ylab("# transcripts")+
+  ggtitle("Transcript level overlap with reference and exonic type")
+ggplot(tracking,aes(x=overlap_Ref,fill=Nexons>1)) +
+  geom_bar(position="fill")+ theme_classic() + ylab("Fraction transcripts")+
+  ggtitle("Transcript level overlap with reference and exonic type") 
+
+```
+```{r ol_ref_nexons_gene_level}
+#(tracking gene level)----
+tracking_GL <- tracking%>%group_by(V2)%>%
+  summarise(N_non_overlap_Ref=sum(!overlap_Ref),
+            N_overlap_Ref=sum(overlap_Ref),
+             overlap_Ref=any(overlap_Ref),
+            multiexonic=any(Nexons!=1),
+            N_transcripts=N_non_overlap_Ref+N_overlap_Ref)
+ggplot(tracking_GL,aes(x=overlap_Ref,fill=multiexonic)) +
+  geom_bar()+ theme_classic() + ylab("# loci")+
+  ggtitle("Gene level overlap with reference and exonic type")
+ggplot(tracking_GL,aes(x=overlap_Ref,fill=multiexonic)) +
+  geom_bar(position="fill")+ theme_classic() + ylab("Fraction loci")+
+  ggtitle("Gene level overlap with reference and exonic type") 
+
+```
+```{r N_transcripts_dist}
+
+### transcripts per gene per Overlap ref ----
+tracking_GL%>%ggplot(aes(x=overlap_Ref,fill=multiexonic,y=N_transcripts))+
+  geom_boxplot()+scale_y_log10()+theme_classic() + ggtitle("Number of transcripts in monoexonic and multiexonic genes")
+
+
+### transcripts and gene per overlap ref per exonic type ----
+N_tr_genes=tracking_GL%>%group_by(overlap_Ref,multiexonic)%>%summarise(
+  transcripts=sum(N_transcripts),
+  genes=n()
+) 
+
+N_tr_genes=tracking_GL%>%group_by(overlap_Ref,multiexonic)%>%summarise(
+  transcripts=sum(N_transcripts),
+  genes=n()
+)
+N_tr_genes=N_tr_genes%>%pivot_longer(cols=c(3,4),values_to="count",names_to="type")
+library(ggpubr)
+
+N_tr_genes$overlap_Ref=ifelse(N_tr_genes$overlap_Ref,"overlap_Ref","not_overlap_Ref")
+ggplot(N_tr_genes,aes(x=multiexonic,
+                      fill=type,y=count))+geom_col(position="dodge")+
+  facet_wrap(~ overlap_Ref) + ggtitle("N transcripts and genes in monoexonic and multiexonic genes")
+```
+
+```{r exons_per_gene}
+exons_per_gene=tchars$exons_info%>%group_by(gene_id)%>%
+  summarise(N_exons=length(unique(exon_id)))
+tracking_GL=left_join(tracking_GL,exons_per_gene,by=c(V2="gene_id"))
+tracking_GL$N_exons_simpl=ifelse(tracking_GL$N_exons>3,">3",tracking_GL$N_exons)
+tracking_GL$N_exons_simpl=factor(tracking_GL$N_exons_simpl,
+                                 levels=c("1","2","3",">3"))
+ggplot(tracking_GL,aes(x=overlap_Ref,fill=N_exons_simpl))+ 
+  geom_bar(position="dodge") + theme_classic() + ggtitle("Number of exons per gene")
+```
+
+## Fraction of reference present in assembly - Ref pov  
+
+This section shows some stats from the point of view of the reference transcriptome, including
+what fraction of it is overlapped by assembled transfrags
+
+```{r ref_pov}
+
+# first split the tracking ref col in ref_gene_id and ref_transcript_id
+tracking=separate(tracking,col = 3,
+                  into = c("ref_gene_id","ref_transcript_id"),
+                  sep = "\\|")
+
+### add ref gene name
+tracking$ref_gene_name=ref_annot$gene_name[match(tracking$ref_transcript_id,
+                                                 ref_annot$V1)]
+
+
+tracking$ref_biotype=ref_annot$simplified_gene_biotype[match(tracking$ref_transcript_id,
+                                                             ref_annot$V1)]
+
+# define priority order of classcodes 
+order_cc=c("=","j","k","c","m","n","e","o","p","s","x","i","y","r","u",".")
+
+# get info of all reference transcripts
+ref_transcripts_info=tchars_refGTF$EPT
+
+# add info of overlapping transfrags
+ref_transcripts_info <- left_join(ref_transcripts_info,
+                                                      tracking%>%dplyr::select(V1,V4,ref_transcript_id,Nexons),
+                                                      by=c(transcript_id="ref_transcript_id"))
+
+# sort by classcode priority to select the best matching transfrag
+ref_transcripts_info <- ref_transcripts_info%>%arrange(match(V4,order_cc))
+
+ref_transcripts_info <- ref_transcripts_info%>%filter(!duplicated(transcript_id))
+
+# add gene biotype 
+ref_transcripts_info$simpl_gene_biotype=ref_annot$simplified_gene_biotype[
+  match(ref_transcripts_info$gene_id,
+        ref_annot$gene_name)]
+colnames(ref_transcripts_info)[4:6]=c("best_transfrag","transfrag_classcode","N_exons_transfrag")
+
+ref_genes_info=ref_transcripts_info%>%group_by(gene_id)%>%
+  summarise(multiexonic=ifelse(any(N_exons!=1),"Ref_gene_multiexonic","Ref_gene_monoexonic"),
+            best_transfrag_cc=transfrag_classcode[1],
+            simpl_gene_biotype=simpl_gene_biotype[1],
+            best_transfrag_exonic_type=ifelse(N_exons_transfrag[1]!=1,"multiexonic","monoexonic"))
+
+table(ref_genes_info$multiexonic)/nrow(ref_genes_info)
+
+ref_transcripts_info$gene_multiexonic=ref_genes_info$multiexonic[
+  match(ref_transcripts_info$gene_id,
+        ref_genes_info$gene_id)
+]
+
+
+## plots
+ggplot(ref_transcripts_info,aes(x=simpl_gene_biotype,fill=gene_multiexonic)) +
+  geom_bar() +theme_classic() +ylab("# transcripts") + ggtitle("Biotype distribution of reference transcripts and exonic type") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(ref_transcripts_info%>%filter(gene_multiexonic=="Ref_gene_multiexonic"),aes(x=simpl_gene_biotype,fill=N_exons>1)) +
+  geom_bar(position = "fill") +theme_classic() +ylab("# transcripts") + ggtitle("Fraction of monoexonic transcripts in multiexonic reference genes")+ theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(ref_transcripts_info,aes(x=gene_multiexonic,fill=transfrag_classcode)) +
+  geom_bar(position = "fill") +theme_classic() +ylab("# transcripts") + ggtitle("Classcode distribution of transfrags overlapping reference multiexonic and monoexonic genes") + xlab("Ref_exonic_type")
+
+ggplot(ref_transcripts_info,aes(x=transfrag_classcode,fill=simpl_gene_biotype)) +
+  geom_bar() +
+  theme_classic() +ylab("# Ref transcripts") + ggtitle("Reference transcripts recovered or not (NA) by transfrags") + facet_wrap(~ gene_multiexonic)
+
+# ggplot(ref_transcripts_info,aes(x=simpl_gene_biotype,fill=transfrag_classcode )) +
+#   geom_bar() +
+#   theme_classic() +ylab("# transcripts") + ggtitle("All reference genes") + facet_wrap(~ gene_multiexonic) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+# 
+
+
+ggplot(ref_transcripts_info,aes(x=simpl_gene_biotype,fill=transfrag_classcode )) +
+  geom_bar(position="fill") +
+  theme_classic() +ylab("fraction transcripts") + ggtitle("Fraction of ref transcripts overlapped by transfrags") + facet_wrap(~ gene_multiexonic) + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+#same but at gene level
+
+ggplot(ref_genes_info,aes(x=simpl_gene_biotype,fill=best_transfrag_cc )) +
+  geom_bar() +
+  theme_classic() +ylab("# genes") + ggtitle("Fraction of reference genes overlapped by transfrags") + facet_wrap(~ multiexonic)+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(ref_genes_info,aes(x=simpl_gene_biotype,fill=best_transfrag_cc )) +
+  geom_bar(position="fill") +
+  theme_classic() +ylab("fraction of genes") + ggtitle("Fraction of reference genes overlapped by transfrags") + facet_wrap(~ multiexonic)+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# further divide classcodes in good overlap and other/antisense overlap
+good_cc=order_cc[1:5]
+other_cc=order_cc[6:length(order_cc)]
+ref_genes_info$type_overlap=ifelse(is.na(ref_genes_info$best_transfrag_cc),NA,
+                                   ifelse(ref_genes_info$best_transfrag_cc%in%good_cc,"good_overlap","other_overlap"))
+
+ggplot(ref_genes_info,aes(x=simpl_gene_biotype,fill=type_overlap )) +
+  geom_bar(position="fill") +
+  theme_classic() +ylab("fraction of genes") + ggtitle("Fraction of reference genes overlapped by transfrags") + facet_wrap(~ multiexonic)+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+ggplot(ref_genes_info,aes(x=best_transfrag_cc,fill=simpl_gene_biotype )) +
+  geom_bar() +
+  theme_classic() +ylab("# genes") + ggtitle("Number of ref gene biotypes in each classcode") + facet_wrap(~ multiexonic)
+
+ggplot(ref_genes_info,aes(x=best_transfrag_cc,fill=best_transfrag_exonic_type )) +
+  geom_bar() +
+  theme_classic() +ylab("# genes") + ggtitle("Exonic type of transfrags overlapping monoexonic and multiexonic ref genes") + facet_wrap(~ multiexonic)
+
+ggplot(ref_genes_info,aes(x=simpl_gene_biotype,fill=best_transfrag_exonic_type )) +
+  geom_bar() +
+  theme_classic() +ylab("# genes") + ggtitle("Reference genes overlapped by tranfrags") + facet_wrap(~ multiexonic)+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(ref_genes_info,aes(x=simpl_gene_biotype,fill=best_transfrag_exonic_type )) +
+  geom_bar(position = "fill") +
+  theme_classic() +ylab("fraction of genes") + ggtitle("Fraction of reference genes overlapped by tranfrags") + facet_wrap(~ multiexonic)+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+
+## Expression levels  
+expression levels per classcode
+```{r}
+tpms=get_expression_values(track = tracking,measure = "tpm",cols = cols_samps)
+tpms$V1=rownames(tpms)
+tracking=left_join(tracking,tpms)
+
+colnames(tpms)[1:Nsamps]=c(paste0("rep_",1:Nsamps))
+tpms_persamp <- tpms %>% pivot_longer(cols=1:3,names_to = "sample",values_to = "tpm")
+
+ggplot(tracking,aes(x=mean_tpm))+geom_density() +scale_x_log10() + ggtitle("Mean TPM expression across all transfrags")
+
+ggplot(tracking,aes(x=mean_tpm,col=Nexons>1))+geom_density() +scale_x_log10() + ggtitle("Mean TPM expression across all transfrags")
+
+ggplot(tracking,aes(y=mean_tpm,x=Nexons>1,col=Nexons>1))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression across all transfrags")
+
+tracking$Overlap_Ref=ifelse(tracking$overlap_Ref,"Overlap_with_Ref","Not_olap_with_Ref")
+
+ggplot(tracking,aes(y=mean_tpm,x=reorder(V4, mean_tpm, median),fill=V4))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression across all transfrags in each classcode") + facet_wrap(~ Overlap_Ref, scales="free_x") +xlab("classcode")
+
+
+tracking$ref_biotype <- ref_annot$simplified_gene_biotype[match(tracking$ref_gene_name,
+                                                                ref_annot$gene_name)]
+
+ggplot(tracking,aes(y=mean_tpm,x=reorder(ref_biotype, mean_tpm, median),fill=ref_biotype))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression across all transfrags vs overlapped biotype") + facet_wrap(~ Overlap_Ref, scales="free_x") +xlab("Ref biotype")+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(tracking%>% filter(overlap_Ref),aes(y=mean_tpm,x=reorder_within(V4, mean_tpm,ref_biotype, median),fill=V4))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression of overlapping transfrags per classcode and ref biotype") +scale_x_reordered()+ facet_wrap(~ ref_biotype, scales="free_x") +xlab("classcode")
+
+ggplot(tracking%>% filter(overlap_Ref),aes(x=reorder_within(V4, mean_tpm,ref_biotype, median),fill=V4))+geom_bar() + ggtitle("N transfrags per overlapping classcode and ref biotype - ordered by mean TPMs within biotype") +scale_x_reordered()+ facet_wrap(~ ref_biotype, scales="free") +xlab("classcode")
+
+
+ggplot(tracking%>% filter(!overlap_Ref),aes(y=mean_tpm,x=reorder_within(V4, mean_tpm, ref_biotype, median),fill=V4))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression of non overlapping transfrags per classcode and ref biotype")+scale_x_reordered() + facet_wrap(~ ref_biotype, scales="free_x") +xlab("classcode")
+
+
+ggplot(tracking%>% filter(!overlap_Ref),aes(x=reorder_within(V4, mean_tpm, ref_biotype, median),fill=V4))+geom_bar() + ggtitle("N transfrags per non-overlapping classcode and ref biotype - ordered by mean TPMs within biotype") +scale_x_reordered() + facet_wrap(~ ref_biotype, scales="free") +xlab("classcode")
+
+# finally I want to compare the expression of non-overlapping things with 
+# overlapping things in each biotype
+tracking$transfrag_class=ifelse(tracking$overlap_Ref,tracking$ref_biotype,tracking$V4)
+
+ggplot(tracking,aes(y=mean_tpm,x=reorder(transfrag_class, mean_tpm, median),fill=transfrag_class))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression across transfrag class") + xlab("transfrag class")+
+   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+
+## Exon level overlaps  
+
+## Write tracking annotated   
+```{r write_tracking_annot}
+
+tracking <- left_join(tracking, gtf%>%filter(type=="transcript")%>%dplyr::select(transcript_id,seqid,start,end, strand),
+                     by=c(V1="transcript_id"))
+
+```
+
+## Session Info  
+```{r sessionInfo}
+sessionInfo()
+```
+
