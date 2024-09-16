@@ -454,6 +454,8 @@ ggplot(tracking,aes(y=mean_tpm,x=reorder(transfrag_class, mean_tpm, median),fill
 tracking <- left_join(tracking, gtf%>%filter(type=="transcript")%>%dplyr::select(transcript_id,seqid,start,end, strand),
                      by=c(V1="transcript_id"))
 
+write.table(tracking,paste0(pref,"_annotated_tracking.tsv"),quote = F,row.names = F,sep = "\t")
+
 ```
 
 ## Session Info  
