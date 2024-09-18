@@ -1,6 +1,6 @@
 datadir="data/raw"
 
-gtf_files=list.files(datadir,pattern = "gtf",full.names = T)
+gtf_files=list.files(datadir,pattern = "gtf$",full.names = T)
 
 
 list_render_params <- lapply(gtf_files, function(gtf_path){
