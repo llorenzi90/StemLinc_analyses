@@ -20,7 +20,9 @@ options(scipen = 999)
 require(tidyverse)
 require(ggvenn)
 library(trastools)
+library(UpSetR)
 # Load data---------------------------
+setwd("~/Rprojects/StemLinc_analyses/")
 source("scripts/nejm_palette.R")
 
 # inputs:
@@ -37,8 +39,8 @@ ref_annot_path="data/references/merged_refs_annotation/annotated_tracking_file.u
 ref_annot=read.table(ref_annot_path,header = T)
 
 sample_names=c("StemLinc","Klimmeck")
-samp1=samp1[1]
-samp2=samp2[2]
+samp1=sample_names[1]
+samp2=sample_names[2]
 
 # functions ----
 
@@ -217,20 +219,21 @@ tracking <- annotate_tracking_with_2_datasets(tracking = tracking,tr1,tr2)
 
 # Transcript level comparison ----
 
-# classcodes
-for (cc in c("=","c","e","i","j","k","m","n","o","p","u","x")) {
-  plot_pair_venn(tracking,
-                 filter_cond = tracking$V4==cc,
-                 title = paste0("Transcript level overlap of ",cc," transcripts"))
-}
 plot_pair_venn(tracking,V5,V6,V1,
 
                title = "Transcript level exact match")
 
+# per classcode
+for (cc in c("=","c","e","i","j","k","m","n","o","p","u","x")) {
+  plot_pair_venn(tracking,V5,V6,V1,
+                 filter_cond = tracking$V4==cc,sampnames = sample_names,
+                 title = paste0("Transcript level overlap of ",cc," transcripts"))
+}
+
 plot_pair_venn(tracking,V5,V6,V1,
                filter_cond = tracking$V4%in%overlapping_class_codes,
                title = "Transcripts that overlap Ref exact match")
-plot_pair_venn(tracking,
+plot_pair_venn(tracking,V5,V6,V1,
                filter_cond = !tracking$V4%in%overlapping_class_codes,
                title = "Transcripts that do not overlap Ref exact match")
 
@@ -330,9 +333,9 @@ tracking_GL$combined_cc=paste(tracking_GL$StemLinc_cc,
                                tracking_GL$Klimmeck_cc,sep = ";")
 
 tra <- tracking_GL %>% filter(combined_cc%in%top_classes$combined_cc)
-tra <- tra%>%dplyr::select(combined_cc, maxNsamps1,maxNsamps2) %>%
+tra <- tra%>%dplyr::select(combined_cc, max_Nsamps_1,max_Nsamps_2) %>%
   pivot_longer(cols = 2:3,names_to = "sample",values_to = "maxNsamps") %>%
-  mutate(sample = recode(sample, "maxNsamps1" = "StemLinc", "maxNsamps2" = "Klimmeck"))
+  mutate(sample = recode(sample, "max_Nsamps_1" = "StemLinc", "max_Nsamps_2" = "Klimmeck"))
 
 tra <- tra[!is.na(tra$maxNsamps),]
 
@@ -345,8 +348,8 @@ ggplot(tra,aes(x=sample,fill=as.factor(maxNsamps))) + geom_bar(position = "fill"
 # intronic genes vs number of samples,
 
 intronic_genes <- tracking_GL %>% filter(combined_cc%in%c("i;i","i;NA","NA;i"))
-StemLinc_intronic=lapply(1:3,function(i)intronic_genes%>%filter(maxNsamps1==i) %>% pull(gene_name))
-Klimmeck_intronic=lapply(1:3,function(i)intronic_genes%>%filter(maxNsamps2==i) %>% pull(gene_name))
+StemLinc_intronic=lapply(1:3,function(i)intronic_genes%>%filter(max_Nsamps_1==i) %>% pull(gene_name))
+Klimmeck_intronic=lapply(1:3,function(i)intronic_genes%>%filter(max_Nsamps_2==i) %>% pull(gene_name))
 intronic_genes_list <- c(StemLinc_intronic,Klimmeck_intronic)
 names(intronic_genes_list)=c(paste0("SL_intronic_maxSamps=",1:3),
                              paste0("Kli_intronic_maxSamps=",1:3))
@@ -355,10 +358,10 @@ upset(fromList(intronic_genes_list), order.by = "freq",nsets = 6)
 grid.text("Intronic genes and max number of assembled samples",x = 0.65, y=0.95, gp=gpar(fontsize=14))
 
 #### Exonic type ----
-exonic_type_list <- list(StemLinc_mono=tracking_GL%>%filter(maxNexons1==1) %>% pull(gene_name),
-                         StemLinc_multi=tracking_GL%>%filter(maxNexons1>1) %>% pull(gene_name),
-                         Klimmeck_mono=tracking_GL%>%filter(maxNexons2==1) %>% pull(gene_name),
-                         Klimmeck_multi=tracking_GL%>%filter(maxNexons2>1) %>% pull(gene_name))
+exonic_type_list <- list(StemLinc_mono=tracking_GL%>%filter(max_Nexons_1==1) %>% pull(gene_name),
+                         StemLinc_multi=tracking_GL%>%filter(max_Nexons_1>1) %>% pull(gene_name),
+                         Klimmeck_mono=tracking_GL%>%filter(max_Nexons_2==1) %>% pull(gene_name),
+                         Klimmeck_multi=tracking_GL%>%filter(max_Nexons_2>1) %>% pull(gene_name))
 sets <- fromList(exonic_type_list)
 sets$gene_name=unique(unlist(exonic_type_list,use.names = F))
 tracking_GL$overlapRef=!is.na(tracking_GL$biotype)
@@ -391,11 +394,11 @@ tracking_GL <- tracking_GL %>% mutate(gene_class=ifelse(overlapRef,biotype,"potN
 expression_dat <- tracking_GL%>%filter(gene_class%in%c("potNovel","protein_coding",
                                                        "lncRNA","TEC","pseudogene"))
 
-expression_dat <- pivot_longer(expression_dat,cols = c("maxTPM1","maxTPM2"),
+expression_dat <- pivot_longer(expression_dat,cols = c("max_mean_tpm_1","max_mean_tpm_2"),
                                names_to = "sample", values_to = "TPM")
 
-expression_dat <- expression_dat%>% mutate(sample = recode(sample,maxTPM1="StemLinc",
-                                                           maxTPM2="Klimmeck"))
+expression_dat <- expression_dat%>% mutate(sample = recode(sample,max_mean_tpm_1="StemLinc",
+                                                           max_mean_tpm_2="Klimmeck"))
 
 expression_dat <- expression_dat%>%filter(!is.na(TPM))
 ggplot(expression_dat, aes(x=in_sample,fill=sample,y=TPM)) +geom_boxplot()+
@@ -405,8 +408,8 @@ ggplot(expression_dat, aes(x=in_sample)) +geom_bar()+
   facet_wrap(~gene_class) + theme_bw() + ylab("# genes")
 
 # add max number of samples
-expression_dat <- expression_dat %>% mutate(maxNsamps=ifelse(sample=="StemLinc",maxNsamps1,
-                                                             maxNsamps2))
+expression_dat <- expression_dat %>% mutate(maxNsamps=ifelse(sample=="StemLinc",max_Nsamps_1,
+                                                             max_Nsamps_2))
 
 ggplot(expression_dat, aes(x=interaction(in_sample,maxNsamps))) +geom_bar()+
   facet_wrap(~gene_class) + theme_bw() + ylab("# genes") + theme(axis.text.x = element_text(angle = 45,hjust = 1))
