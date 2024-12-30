@@ -5,7 +5,7 @@ library(tidyverse)
 # Define the command-line arguments
 option_list <- list(
   make_option(c("-f", "--file_path"), type="character", default=NULL,
-              help="Path to the input file (mandatory)", metavar="character"),
+              help="Path to the input file, an annotated tracking file (mandatory)", metavar="character"),
   make_option(c("-n", "--N_samps"), type="integer", default=3,
               help="Number of samples in which each gene is found (default: %default)", metavar="integer"),
   make_option(c("-t", "--tpm_cutoff"), type="double", default=0.2,
@@ -77,9 +77,12 @@ filter_transcriptome <- function(annotated_tracking,Nsamps_per_gene=3,maxTPM=0.2
   gene_level_info <- gene_level_info %>% mutate(gene_class=ifelse(is.na(biotype),best_cc,biotype))
 
   # filter
+  gene_level_genomic_range <- trastools::get_genomic_range_by_gene(annotated_tracking,by = "gene_name")
+  gene_level_info <- left_join(gene_level_info, gene_level_genomic_range)
   genes2keep <- gene_level_info %>% filter(Nsamps==Nsamps_per_gene&max_mean_tpm>=maxTPM) %>% pull(gene_name)
   gene_level_info$pass_filter <- gene_level_info$gene_name%in%genes2keep
   filtered_tracking <- annotated_tracking %>% filter(gene_name %in% genes2keep)
+
   return(list(filtered_tracking=filtered_tracking,
               gene_level_info=gene_level_info))
 }

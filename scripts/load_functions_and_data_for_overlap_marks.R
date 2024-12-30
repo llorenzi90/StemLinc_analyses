@@ -46,7 +46,7 @@ get_closest_peaks_stranded <- function(bed,mark,s=T){
 ## Load data---------------------------
 source("scripts/source_all_functions.R")
 outdir="outputs/overlap_marks/"
-dir.create(outdir)
+#dir.create(outdir)
 
 gene_level_data_path <- "outputs/transcriptome_characterization/LSK_StemLinc.combined/LSK_StemLinc.combined_annotated_tracking.gene_level_info.20240930_173216.filtered.gene_classif.tsv"
 check_file_header(gene_level_data_path)
@@ -56,8 +56,36 @@ gene_level_bed <- extract_bed(gene_level_info)
 transcript_level_data_path <- "outputs/transcriptome_characterization/LSK_StemLinc.combined/LSK_StemLinc.combined_annotated_tracking.filtered.20240930_173216.gene_classif.tsv"
 transcript_level_data <- read.table(transcript_level_data_path,header = T)
 transcript_level_bed <- extract_bed(transcript_level_data,name = "V1",score = "gene_name")
-TSS_bed <- transcript_level_bed %>% mutate(end=start+1)
-TSS_bed <- TSS_bed %>% filter(!duplicated(TSS_bed%>%select(seqid,start,end,strand)))
+
+# extract TSSs ----
+TSS_bed <- transcript_level_bed %>% mutate(start = ifelse(strand=="+",start,end - 1),
+                                           end = start + 1 )
+#TSS_bed <- TSS_bed %>% dplyr::filter(!duplicated(TSS_bed%>%dplyr::select(seqid,start,end,strand)))
+TSS_bed <- TSS_bed %>% arrange(match(seqid,chr_order),start)
+
+# extract TESs ----
+TES_bed <- transcript_level_bed %>% mutate(start = ifelse(strand=="+",end - 1,start),
+                                           end = start +1)
+#TES_bed <- TES_bed %>% dplyr::filter(!duplicated(TES_bed%>%dplyr::select(seqid,start,end,strand)))
+TES_bed <- TES_bed %>% arrange(match(seqid,chr_order),start)
 
 gl_out_pref=gsub(".tsv","",basename(gene_level_data_path))
 tl_out_pref=gsub(".tsv","",basename(transcript_level_data_path))
+
+
+biots_of_interest=c("potNovel","lncRNA","TEC","pseudogene","protein_coding")
+ncbiots=c("lncRNA","TEC","potNovel","pseudogene")
+lncRNA_potNovel_TEC=c("lncRNA","TEC","potNovel")
+potNovel_TEC=c("TEC","potNovel")
+biotypes2select=list(biots_of_interest,
+                     ncbiots,
+                     lncRNA_potNovel_TEC,
+                     potNovel_TEC)
+
+classes=sort(unique(gene_level_info$best_classif_to_PCG))
+
+simpl_classes=c("antisense","convergent",
+                "convergent","divergent","divergent",
+                "intergenic","intronic_antisense",
+                "intronic_sense","sense","sense","sense","sense",
+                "sense")

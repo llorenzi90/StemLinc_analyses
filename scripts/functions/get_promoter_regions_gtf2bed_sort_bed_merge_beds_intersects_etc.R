@@ -1,8 +1,8 @@
 # functions extracted from ol_multiple_public_histone_peaks.R
 #source('/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/Lucia/Marie_Curie/scripts/StemLinc_code/compute_gene_non_redundant_exons_and_exonic_length.functions.R')
 library(trastools)
-
-primary_chrs=paste0("chr",c(rep(1:19),
+source("scripts/functions/functions.R")
+primary_chrs=paste0("chr",c(rep(1:22),
                             "X","Y","M"))
 
 get_first_exons <- function(GTF){
@@ -47,7 +47,7 @@ gtf2bed <- function(gtf,gi="gene_name",move_start=1){
   return(bed)
 }
 
-sort_bed <- function(bed,primary_chrs=paste0("chr",c(rep(1:19),
+sort_bed <- function(bed,primary_chrs=paste0("chr",c(rep(1:22),
                                                      "X","Y","M"))){
 
   bed=as.data.frame(bed)
@@ -60,7 +60,7 @@ sort_bed <- function(bed,primary_chrs=paste0("chr",c(rep(1:19),
 
 merge_beds <- function(bed,
                        stranded=F,
-                       primary_chrs=paste0("chr",c(rep(1:19),
+                       primary_chrs=paste0("chr",c(rep(1:22),
                                                    "X","Y","M"))){
 
   bed=sort_bed(bed,primary_chrs)
@@ -87,10 +87,11 @@ intersect_wao <- function(qbed,markbed){
 
 geneBody_intersect_fromGTF <- function(GTF,
                                        bed2merge,
-                                       gene_level=T){
+                                       gene_level=T,
+                                       gene_col="gene_id"){
   ## Generate gene body coverage of marks:
 
-  # Make overlap at exon level,
+  # Make overlap at exon level for each transcript
   # then aggregate the total covered length
   # for each transcript and divide by the transcript length
 
@@ -103,8 +104,8 @@ geneBody_intersect_fromGTF <- function(GTF,
 
   GTF=GTF%>%filter(type=="exon")
 
-  trgtf= gtf2bed(GTF,
-                 gi= "transcript_id")
+  trgtf= extract_bed(GTF,
+                   name= "transcript_id")
 
   qbed_cols=ncol(trgtf)
 
@@ -117,13 +118,15 @@ geneBody_intersect_fromGTF <- function(GTF,
   colnames(tr_bd_intersect)[qbed_cols+mbed_cols+1]="cov"
   tr_bd_intersect=
     tr_bd_intersect%>%
-    group_by(V4)%>%
-    summarise(total_cov=sum(cov),
+    dplyr::group_by(V4)%>%
+    dplyr::summarise(total_cov=sum(cov),
               total_len=sum(exon_len),
               fraction_covered=total_cov/total_len)
 
+  GTF$gene_name=GTF[,colnames(GTF)==gene_col]
   tr_bd_intersect$gene_name=GTF$gene_name[match(tr_bd_intersect$V4,
                                                 GTF$transcript_id)]
+  GTF$gene_id=GTF$gene_name
   if(!gene_level){
     return(tr_bd_intersect)
   }else{
@@ -135,12 +138,13 @@ geneBody_intersect_fromGTF <- function(GTF,
                 max_tr_covered=V4[1],
                 max_tr_len=total_len[1])
 
-    gene_merged_exons=get_per_gene_merged_exons(GTF)
+    gene_merged_exons=trastools::get_per_gene_merged_exons(GTF)
     colnames(gene_merged_exons)[6]="score"
     colnames(gene_merged_exons)[2]="gene_name"
     colnames(gene_merged_exons)[3]="seqid"
 
-    gene_bd_intersect=intersect_wao(gtf2bed(gene_merged_exons),
+    gene_bd_intersect=intersect_wao(extract_bed(gene_merged_exons,
+                                                name = "gene_name"),
                                     merged_beds)
 
     colnames(gene_bd_intersect)[qbed_cols+mbed_cols+1]="cov"

@@ -323,6 +323,7 @@ query_data_path="outputs/transcriptome_characterization/LSK_StemLinc.combined/LS
 query_data <- read.table(query_data_path,header = T)
 query_bed <- trastools::get_genomic_range_by_gene(query_data,by = "gene_name")
 closest_class_to_PCG=get_gene_class(ref_gtf,query_bed,N = F)
+write.table(closest_class_to_PCG,"outputs/closest_PCGs.txt",quote = F,row.names = F,sep = "\t")
 table(closest_class_to_PCG$idT%in%conv_table$gene_id)
 #make sure all gene_ids have a gene_name
 anyNA(conv_table$gene_name)

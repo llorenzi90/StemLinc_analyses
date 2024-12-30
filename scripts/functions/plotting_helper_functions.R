@@ -1,5 +1,5 @@
 save_tiff_svg <- function(plo,outdir=".",filename="plot",
-                       h=10,w=10){
+                       h=8,w=8){
   grDevices::tiff(res = 300, height = h ,width = w, units = "in",
        paste0(outdir,"/",filename,".tiff"))
   print(plo)
