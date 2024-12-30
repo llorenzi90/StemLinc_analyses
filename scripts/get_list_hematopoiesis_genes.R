@@ -99,7 +99,7 @@ table(fingerprint_HSC$`Gene Symbol`%in%gene_level_info$gene_name)
 # FALSE  TRUE
 # 143   230
 
-F# Try to recover genes by aliases ----
+# Try to recover genes by aliases ----
 # Define your list of genes
 genes <- big_list[!big_list%in%gene_level_info$gene_name]
 
