@@ -1,0 +1,32 @@
+# 1 rsync data
+sbatch rsync_data_LSK.sh
+
+# 2 check md5sums
+ml load R
+orig_md5=/ijc/LABS/CUARTERO/RAW/StemLinc/20240219_StemLinc_LSK_RNA_seq/MD5.txt
+Rscript compare_md5sums.R $orig_md5 md5sum_jobs.txt > md5sum_comparison.txt
+
+# 3 run fastqc and STAR
+for fi in $(ls analyses/);do echo $fi; sbatch -q highMem -J $fi.fastqc_STAR fastqc_STAR-align.sh analyses/$fi ; done
+
+# 4 run picard mark duplicates, samtools filter mapq1 and primary chrs and samtools stats
+for fi in $(ls analyses/);do echo $fi; sbatch -q highMem -J $fi.markDups_filter markrmDups_filterAlignedreads_stStats.sh analyses/$fi ; done
+
+# 5 run RSeQC tools: infer experiment to confirm stranded type, read distribution and gene body coverage
+./submit_RSeQC_tools.sh /mnt/beegfs/llorenzi/jobs/LSK_RNA_seq EXP4_geneBodycov
+
+# 6 run StringTie 
+./submit_StringTie_guided_blind_strandRF.sh /mnt/beegfs/llorenzi/jobs/LSK_RNA_seq
+
+# 7 run gffCompare
+./create_strtie_guided_blind_inputs_for_gffcompare.sh
+
+sbatch gffCompare.sh LSK_StemLinc
+
+sbatch gffCompare_combinedgtf_vs_ref.sh LSK_StemLinc
+
+sbatch gffCompare_blind.sh LSK_StemLinc.blind
+
+# 8 run bamCoverage 
+for fi in $(ls analyses/);do echo $fi; sbatch -J $fi.bamCov bamCoverage_bystrand.sh analyses/$fi ; done
+
