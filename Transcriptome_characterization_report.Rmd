@@ -26,7 +26,7 @@ library(bedtoolsr)
 library(ggplot2)
 library(trastools)
 # load functions from source----
-source("scripts/plotting_helper_functions.R")
+source("scripts/functions/plotting_helper_functions.R")
 ```
 
 ```{r load_data}

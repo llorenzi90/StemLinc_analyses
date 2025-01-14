@@ -20,6 +20,8 @@ ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero
 system(paste0("ln -s '",ref_gtf,"' ",linkdir))
 annot='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt'
 system(paste0("ln -s '",annot,"' ",linkdir))
+ref_gtf_with_gene_name='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.with_gene_name.gtf'
+system(paste0("ln -s '",ref_gtf_with_gene_name,"' ",linkdir))
 
 linkdir="data/references/genomes/"
 mm39_genome='/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/references/mouse/genomes/mm39.fa'
@@ -111,3 +113,25 @@ source_data <- '/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=in
 linkdir="data/references/RepeatMasker/"
 dir.create(linkdir)
 system(paste0("ln -s '",source_data,"' ",linkdir))
+
+
+list_render_params=list(T_cell.guided =
+                          list(tracking_path = '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare/T_cell.tracking',
+                               gtf_path= '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare/T_cell.combined.gtf'),
+
+                        Macro.guided =
+                          list(tracking_path = '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare/Macro.tracking',
+                               gtf_path= '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare/Macro.combined.gtf'),
+
+                        T_cell.blind =
+                          list(tracking_path = '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare_blind/T_cell.blind.tracking',
+                               gtf_path= '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare_blind/T_cell.blind.combined.gtf'),
+
+                        Macro.blind =
+                          list(tracking_path = '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare_blind/Macro.blind.tracking',
+                               gtf_path= '/home/llorenzi/Documentos/T-cells_macrophages/gffcompare_blind/Macro.blind.combined.gtf')
+)
+list_render_params
+
+linkdir="data/raw/"
+lapply(list_render_params,function(fi)sapply(paste0("ln -s '",fi,"' ",linkdir),function(cm)system(cm)))

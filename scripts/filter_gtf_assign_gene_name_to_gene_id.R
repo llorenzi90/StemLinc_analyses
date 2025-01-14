@@ -1,6 +1,8 @@
 library(rtracklayer)
-gtf_path="data/raw/LSK_StemLinc.combined.gtf"
-annot_path="outputs/transcriptome_characterization/LSK_StemLinc.combined/LSK_StemLinc.combined_annotated_tracking.filtered.20240930_173216.gene_classif.tsv"
+library(tidyverse)
+cargs=commandArgs(trailingOnly = T)
+gtf_path=cargs[1] #"data/raw/LSK_StemLinc.combined.gtf"
+annot_path=cargs[2] #"outputs/transcriptome_characterization/LSK_StemLinc.combined/LSK_StemLinc.combined_annotated_tracking.filtered.20240930_173216.gene_classif.tsv"
 timestamp <- gsub(".*?(([0-9]{8}_[0-9]{6})(_([0-9]{3}))?).*?$", "\\2.\\4", annot_path)
 
 # read raw sample gtf
