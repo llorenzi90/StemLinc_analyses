@@ -35,7 +35,7 @@ tr1_path="outputs/transcriptome_characterization/LSK_StemLinc.combined/LSK_StemL
 tr2_path="outputs/transcriptome_characterization/Kli_MarkedDups_guided.combined/Kli_MarkedDups_guided.combined_annotated_tracking.tsv"
 
 # 3. sample names
-sample_names=c("StemLinc","Klimmeck")
+sample_names=c("TEST1","TEST2")
 
 # 4. reference annotation file
 ref_annot_path="data/references/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt"
@@ -60,15 +60,24 @@ plot_pair_venn <- function(tra,
                            filter_cond=rep(T,nrow(tra)), # defaults the entire data
                            sampnames=sample_names,
                            title=""){
-  tra <- tra %>% filter(filter_cond)
-  if(is.logical(tra%>%pull({{samp1_var}}))){
-    vennlist <- list(tra %>% filter({{samp1_var}}) %>% pull({{feat_var}}) ,
-                     tra %>% filter({{samp2_var}}) %>% pull({{feat_var}}))
-  }else{
-    vennlist <- list(tra %>% filter({{samp1_var}}!="-") %>% pull({{feat_var}}) ,
-                     tra %>% filter({{samp2_var}}!="-") %>% pull({{feat_var}}))
-  }
 
+  # Capture the column names as symbols
+  samp1_var <- ensym(samp1_var)
+  samp2_var <- ensym(samp2_var)
+  feat_var <- ensym(feat_var)
+
+  tra <- tra %>% filter(filter_cond)
+  if (is.logical(tra %>% pull(!!samp1_var))) {
+    vennlist <- list(
+      tra %>% filter(!!samp1_var) %>% pull(!!feat_var),
+      tra %>% filter(!!samp2_var) %>% pull(!!feat_var)
+    )
+  } else {
+    vennlist <- list(
+      tra %>% filter(!!samp1_var != "-") %>% pull(!!feat_var),
+      tra %>% filter(!!samp2_var != "-") %>% pull(!!feat_var)
+    )
+  }
   names(vennlist)=sampnames
   g=ggvenn(
     vennlist,
@@ -278,8 +287,9 @@ plot_heatmap <- function(cc_dat,sampnames=sample_names,
 
 
 
-cc_dat=as.data.frame(table(tracking_GL$StemLinc_cc,
-                           tracking_GL$Klimmeck_cc))
+cc_dat=as.data.frame(table(as.data.frame(tracking_GL)[,colnames(tracking_GL)==paste0(samp1,"_cc")],
+                           as.data.frame(tracking_GL)[,colnames(tracking_GL)==paste0(samp2,"_cc")]))
+
 
 p=plot_heatmap(cc_dat = cc_dat, title = "All assembled genes")
 myplots[[1]]=plotly::as_widget(plotly::ggplotly(p, tooltip="text"))
@@ -287,8 +297,10 @@ myplots[[1]]=plotly::as_widget(plotly::ggplotly(p, tooltip="text"))
 i=2
 for (biot in unique(tracking_GL$biotype)) {
   tra=tracking_GL%>%filter(biotype%in%biot)
-  cc_dat=as.data.frame(table(tra$StemLinc_cc,
-                             tra$Klimmeck_cc))
+  cc_dat=as.data.frame(table(as.data.frame(tra)[,colnames(tra)==paste0(samp1,"_cc")],
+                             as.data.frame(tra)[,colnames(tra)==paste0(samp2,"_cc")]))
+
+
   p=plot_heatmap(cc_dat,title = paste0("Assembled genes in ",biot,
                                      " biotype"))
   myplots[[i]] <- plotly::as_widget(plotly::ggplotly(p, tooltip="text"))
@@ -296,60 +308,74 @@ for (biot in unique(tracking_GL$biotype)) {
 }
 myplots
 ### Pairwise Venns ----
-plot_pair_venn(tracking_GL,StemLinc,Klimmeck,gene_name,title = "Gene level overlap")
-plot_pair_venn(tracking_GL,StemLinc,Klimmeck,gene_name,filter_cond = !is.na(tracking_GL$biotype),
+plot_pair_venn(tracking_GL, !!sym(samp1), !!sym(samp2),
+               gene_name, title = "Gene level overlap")
+plot_pair_venn(tracking_GL,!!sym(samp1),!!sym(samp2),gene_name,
+               filter_cond = !is.na(tracking_GL$biotype),
                title = "Gene level overlap - annotated genes")
 
-plot_pair_venn(tracking_GL,StemLinc,Klimmeck,gene_name,
+plot_pair_venn(tracking_GL,!!sym(samp1),!!sym(samp2),gene_name,
                filter_cond = is.na(tracking_GL$biotype),
                title = "Gene level overlap - potential novel genes")
 
+
 for (biot in c("protein_coding","lncRNA","pseudogene")) {
   plot_pair_venn(tracking_GL,
-                   StemLinc,
-                   Klimmeck,
+                 !!sym(samp1),
+                 !!sym(samp2),
                    gene_name,
-                   filter_cond = !is.na(tracking_GL$biotype)&tracking_GL$biotype==biot,
+                   filter_cond = !is.na(tracking_GL$biotype)&
+                   tracking_GL$biotype==biot,
                    title = paste0("Gene level overlap - ",biot))
 
 }
 
 ### Venns including ref ----
-tracking_GL_with_ref <- full_join(ref_annot %>% mutate(biotype=simplified_gene_biotype,Ref=TRUE)%>%dplyr::select(gene_name,biotype,Ref),
-                             tracking_GL %>% dplyr::select(gene_name,StemLinc,Klimmeck,biotype)
+tracking_GL_with_ref <- full_join(ref_annot %>%
+                                    mutate(biotype=simplified_gene_biotype,
+                                           Ref=TRUE) %>%
+                                    dplyr::select(gene_name,biotype,Ref),
+                             tracking_GL %>%
+                               dplyr::select(gene_name,!!sym(samp1),!!sym(samp2),biotype)
                                   )
 
 tracking_GL_with_ref[is.na(tracking_GL_with_ref)] <- FALSE
 
-plot_three_venn(tracking_GL_with_ref,StemLinc,Klimmeck,Ref,gene_name,title = "Gene level overlap")
+plot_three_venn(tracking_GL_with_ref,!!sym(samp1),!!sym(samp2),
+                Ref,gene_name,title = "Gene level overlap")
 
 for (biot in unique(tracking_GL_with_ref$biotype)) {
-  p=plot_three_venn(tracking_GL_with_ref,StemLinc,Klimmeck,Ref,gene_name,
-                  title = paste0("Gene level overlap - ", biot," and potential novel"),
-                  filter_cond = tracking_GL_with_ref$biotype%in%c(biot,"FALSE"))
+  p=plot_three_venn(tracking_GL_with_ref,!!sym(samp1),
+                    !!sym(samp2),Ref,gene_name,
+                  title = paste0("Gene level overlap - ",
+                                 biot," and potential novel"),
+                  filter_cond = tracking_GL_with_ref$biotype%in%
+                    c(biot,"FALSE"))
   print(p)
 }
 
 ### Barplot of number of samples in each dataset ----
 # per the top X most abundant groups in the heatmap
-cc_dat=as.data.frame(table(tracking_GL$StemLinc_cc,
-                           tracking_GL$Klimmeck_cc))
+
 cc_dat$combined_cc=paste(cc_dat$Var1,cc_dat$Var2,sep = ";")
 X=15
 top_classes=cc_dat %>% arrange(-Freq) %>%slice(1:X)
 top_classes
-tracking_GL$combined_cc=paste(tracking_GL$StemLinc_cc,
-                               tracking_GL$Klimmeck_cc,sep = ";")
+
+tracking_GL$combined_cc=paste(as.data.frame(tracking_GL)[,colnames(tracking_GL)==paste0(samp1,"_cc")],
+                              as.data.frame(tracking_GL)[,colnames(tracking_GL)==paste0(samp2,"_cc")],sep = ";")
 
 tra <- tracking_GL %>% filter(combined_cc%in%top_classes$combined_cc)
 tra <- tra%>%dplyr::select(combined_cc, max_Nsamps_1,max_Nsamps_2) %>%
   pivot_longer(cols = 2:3,names_to = "sample",values_to = "maxNsamps") %>%
-  mutate(sample = recode(sample, "max_Nsamps_1" = "StemLinc", "max_Nsamps_2" = "Klimmeck"))
+  mutate(sample = recode(sample, "max_Nsamps_1" = samp1, "max_Nsamps_2" = samp2))
 
 tra <- tra[!is.na(tra$maxNsamps),]
 
-ggplot(tra,aes(x=sample,fill=as.factor(maxNsamps))) + geom_bar() + facet_wrap(~combined_cc)
-ggplot(tra,aes(x=sample,fill=as.factor(maxNsamps))) + geom_bar(position = "fill") + facet_wrap(~combined_cc)
+ggplot(tra,aes(x=sample,fill=as.factor(maxNsamps))) +
+  geom_bar() + facet_wrap(~combined_cc)
+ggplot(tra,aes(x=sample,fill=as.factor(maxNsamps))) +
+  geom_bar(position = "fill") + facet_wrap(~combined_cc)
 
 
 ### UpSet plots ----
@@ -357,20 +383,25 @@ ggplot(tra,aes(x=sample,fill=as.factor(maxNsamps))) + geom_bar(position = "fill"
 # intronic genes vs number of samples,
 
 intronic_genes <- tracking_GL %>% filter(combined_cc%in%c("i;i","i;NA","NA;i"))
-StemLinc_intronic=lapply(1:3,function(i)intronic_genes%>%filter(max_Nsamps_1==i) %>% pull(gene_name))
-Klimmeck_intronic=lapply(1:3,function(i)intronic_genes%>%filter(max_Nsamps_2==i) %>% pull(gene_name))
-intronic_genes_list <- c(StemLinc_intronic,Klimmeck_intronic)
-names(intronic_genes_list)=c(paste0("SL_intronic_maxSamps=",1:3),
-                             paste0("Kli_intronic_maxSamps=",1:3))
+Samp1_intronic=lapply(1:3,function(i)intronic_genes%>%
+                           filter(max_Nsamps_1==i) %>% pull(gene_name))
+Samp2_intronic=lapply(1:3,function(i)intronic_genes%>%
+                        filter(max_Nsamps_2==i) %>% pull(gene_name))
+intronic_genes_list <- c(Samp1_intronic,Samp2_intronic)
+names(intronic_genes_list)=c(paste0(samp1,"_intronic_maxSamps=",1:3),
+                             paste0(samp2,"_intronic_maxSamps=",1:3))
 
 upset(fromList(intronic_genes_list), order.by = "freq",nsets = 6)
 grid.text("Intronic genes and max number of assembled samples",x = 0.65, y=0.95, gp=gpar(fontsize=14))
 
 #### Exonic type ----
-exonic_type_list <- list(StemLinc_mono=tracking_GL%>%filter(max_Nexons_1==1) %>% pull(gene_name),
-                         StemLinc_multi=tracking_GL%>%filter(max_Nexons_1>1) %>% pull(gene_name),
-                         Klimmeck_mono=tracking_GL%>%filter(max_Nexons_2==1) %>% pull(gene_name),
-                         Klimmeck_multi=tracking_GL%>%filter(max_Nexons_2>1) %>% pull(gene_name))
+exonic_type_list <- list(Samp1_mono=tracking_GL%>%filter(max_Nexons_1==1) %>% pull(gene_name),
+                         Samp1_multi=tracking_GL%>%filter(max_Nexons_1>1) %>% pull(gene_name),
+                         Samp2_mono=tracking_GL%>%filter(max_Nexons_2==1) %>% pull(gene_name),
+                         Samp2_multi=tracking_GL%>%filter(max_Nexons_2>1) %>% pull(gene_name))
+
+names(exonic_type_list) <- c(paste0(samp1,c("_mono","_multi")),
+                                  paste0(samp2,c("_mono","_multi")))
 sets <- fromList(exonic_type_list)
 sets$gene_name=unique(unlist(exonic_type_list,use.names = F))
 tracking_GL$overlapRef=!is.na(tracking_GL$biotype)
@@ -395,19 +426,22 @@ upset(sets %>% filter(!overlapRef),
       query.legend = "bottom", nsets = 6, number.angles = 30, point.size = 3.5, line.size = 2,
 
 )
+
 grid.text("Exonic type of potential novel genes",x = 0.65, y=0.95, gp=gpar(fontsize=14))
 
 ## Expression plots ----
 tracking_GL <- tracking_GL %>% mutate(gene_class=ifelse(overlapRef,biotype,"potNovel"),
-                                      in_sample=ifelse(StemLinc&Klimmeck,"both",ifelse(StemLinc,"StemLinc","Klimmeck")))
+                                      in_sample=ifelse(!!sym(samp1)&!!sym(samp2),"both",
+                                                       ifelse(!!sym(samp1),samp1,samp2)))
 expression_dat <- tracking_GL%>%filter(gene_class%in%c("potNovel","protein_coding",
                                                        "lncRNA","TEC","pseudogene"))
 
-expression_dat <- pivot_longer(expression_dat,cols = c("max_mean_tpm_1","max_mean_tpm_2"),
+expression_dat <- pivot_longer(expression_dat,
+                               cols = c("max_mean_tpm_1","max_mean_tpm_2"),
                                names_to = "sample", values_to = "TPM")
 
-expression_dat <- expression_dat%>% mutate(sample = recode(sample,max_mean_tpm_1="StemLinc",
-                                                           max_mean_tpm_2="Klimmeck"))
+expression_dat <- expression_dat%>% mutate(sample = recode(sample,max_mean_tpm_1=samp1,
+                                                           max_mean_tpm_2=samp2))
 
 expression_dat <- expression_dat%>%filter(!is.na(TPM))
 ggplot(expression_dat, aes(x=in_sample,fill=sample,y=TPM)) +geom_boxplot()+
@@ -417,7 +451,7 @@ ggplot(expression_dat, aes(x=in_sample)) +geom_bar()+
   facet_wrap(~gene_class) + theme_bw() + ylab("# genes")
 
 # add max number of samples
-expression_dat <- expression_dat %>% mutate(maxNsamps=ifelse(sample=="StemLinc",max_Nsamps_1,
+expression_dat <- expression_dat %>% mutate(maxNsamps=ifelse(sample==samp1,max_Nsamps_1,
                                                              max_Nsamps_2))
 
 ggplot(expression_dat, aes(x=interaction(in_sample,maxNsamps))) +geom_bar()+
