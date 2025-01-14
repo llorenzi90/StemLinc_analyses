@@ -15,8 +15,11 @@
 # lapply(list_render_params,function(fi)sapply(paste0("ln -s '",fi,"' ",linkdir),function(cm)system(cm)))
 
 linkdir="data/references/merged_refs_annotation/"
-ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.annot_trnames.gtf'
+#ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.annot_trnames.gtf'
+ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.annot_trnames.gtf'
 system(paste0("ln -s '",ref_gtf,"' ",linkdir))
+annot='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt'
+system(paste0("ln -s '",annot,"' ",linkdir))
 
 linkdir="data/references/genomes/"
 mm39_genome='/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/references/mouse/genomes/mm39.fa'
