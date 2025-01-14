@@ -21,11 +21,11 @@ for fi in $(ls analyses/);do echo $fi; sbatch -q highMem -J $fi.markDups_filter 
 # 7 run gffCompare
 ./create_strtie_guided_blind_inputs_for_gffcompare.sh
 
-sbatch gffCompare.sh LSK_StemLinc
+sbatch gffCompare.sh strtie_guided_gtfs.txt LSK_StemLinc
 
 sbatch gffCompare_combinedgtf_vs_ref.sh LSK_StemLinc
 
-sbatch gffCompare_blind.sh LSK_StemLinc.blind
+sbatch gffCompare_blind.sh strtie_blind_gtfs.txt LSK_StemLinc.blind
 
 # 8 run bamCoverage 
 for fi in $(ls analyses/);do echo $fi; sbatch -J $fi.bamCov bamCoverage_bystrand.sh analyses/$fi ; done
