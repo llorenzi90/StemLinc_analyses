@@ -11,10 +11,13 @@ refgtf="/mnt/beegfs/llorenzi/jobs/StemLinc/gffcompare_merge_ref_annotations/merg
 smaskedgenome="/mnt/beegfs/public/references/genome/mouse/soft_masked/mm39.fa"
 
 query_gtfs_file=$1 # strtie_guided_gtfs.txt
-outpref=$2 #LSK_StemLinc
+outpref=$2 # LSK_StemLinc
+outdir=$3 # gffcompare
 
-mkdir gffcompare
+mkdir -p $outdir
 
-gffcompare -i $query_gtfs_file -r $refgtf -s $smaskedgenome -V -j gffcompare/$outpref.new_junction.tsv -o gffcompare/$outpref
+# gffCompare with various GTF queries
+gffcompare -i $query_gtfs_file -r $refgtf -s $smaskedgenome -V -j $outdir/$outpref.new_junction.tsv -o $outdir/$outpref
 
-
+# gffCompare with the combined GTF against ref GTF
+gffcompare -r $refgtf -s $smaskedgenome -V -j $outdir/combined_$outpref.new_junction.tsv -o $outdir/combined_$outpref $outdir/$outpref.combined.gtf
