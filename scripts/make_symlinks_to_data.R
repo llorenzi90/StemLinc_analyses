@@ -16,11 +16,13 @@
 
 linkdir="data/references/merged_refs_annotation/"
 #ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.13,share=investigacio/Cuartero Group/CUARTERO GROUP/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.annot_trnames.gtf'
-ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.annot_trnames.gtf'
-system(paste0("ln -s '",ref_gtf,"' ",linkdir))
-annot='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt'
+#ref_gtf='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.annot_trnames.gtf'
+#system(paste0("ln -s '",ref_gtf,"' ",linkdir))
+#annot='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt'
+annot="/home/llorenzi/Documentos/references/annotated_tracking_file.updated_gene_names.20250121.txt"
 system(paste0("ln -s '",annot,"' ",linkdir))
-ref_gtf_with_gene_name='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.with_gene_name.gtf'
+#ref_gtf_with_gene_name='/run/user/1608803857/gvfs/smb-share:server=10.110.20.7,share=bdcuartero/references/mouse/annotation/merged_refs_annotation/merged_refs.combined.with_gene_name.gtf'
+ref_gtf_with_gene_name="/home/llorenzi/Documentos/references/merged_refs.combined.updated_gene_names.20250121.gtf"
 system(paste0("ln -s '",ref_gtf_with_gene_name,"' ",linkdir))
 
 linkdir="data/references/genomes/"
@@ -135,3 +137,16 @@ list_render_params
 
 linkdir="data/raw/"
 lapply(list_render_params,function(fi)sapply(paste0("ln -s '",fi,"' ",linkdir),function(cm)system(cm)))
+
+
+#  Combined transcriptome from filtered LSK, T-cells and macrophages
+linkdir="data/hpc_data"
+dir.create(linkdir)
+source_data <- "/home/llorenzi/Documentos/all_samples_analyses/filtered_LSK_T-cell_macrophage.combined.gtf"
+system(paste0("ln -s '",source_data,"' ",linkdir))
+source_data <- "/home/llorenzi/Documentos/all_samples_analyses/filtered_LSK_T-cell_macrophage.tracking"
+system(paste0("ln -s '",source_data,"' ",linkdir))
+source_data <- "/home/llorenzi/Documentos/all_samples_analyses/kallisto/filtered_assembly_StemLinc_samples_kallisto.TPM.tsv"
+system(paste0("ln -s '",source_data,"' ",linkdir))
+source_data <- "/home/llorenzi/Documentos/all_samples_analyses/kallisto/filtered_assembly_StemLinc_samples_kallisto.counts.tsv"
+system(paste0("ln -s '",source_data,"' ",linkdir))
