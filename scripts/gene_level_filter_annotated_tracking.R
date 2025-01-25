@@ -1,6 +1,7 @@
 library(trastools)
 library(optparse)
 library(tidyverse)
+ref_annot_path="~/Rprojects/StemLinc_analyses/data/references/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt"
 
 # Define the command-line arguments
 option_list <- list(
@@ -31,7 +32,6 @@ cat("tpm_cutoff:", opt$tpm_cutoff, "\n")
 cat("suffix:", opt$suffix, "\n")
 
 ordered_classcodes <- c("=", "j", "k", "c", "m", "n", "e", "o", "p", "s", "x", "i", "y", "u", "r", ".")
-ref_annot_path="~/Rprojects/StemLinc_analyses/data/references/merged_refs_annotation/annotated_tracking_file.updated_gene_names.txt"
 ref_annot=read.table(ref_annot_path,header = T)
 
 get_n_samples_per_gene_from_tracking_gene_name <- function(tracking,gene_id="gene_name",cols=6:8){
