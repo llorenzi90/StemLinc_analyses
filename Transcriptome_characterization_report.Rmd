@@ -403,9 +403,10 @@ ggplot(ref_genes_info,aes(x=simpl_gene_biotype,fill=transfrag_exonic_type )) +
 
 ## Expression levels  
 expression levels per classcode
-```{r}
+```{r expression}
 tpms=get_expression_values(track = tracking,measure = "tpm",cols = cols_samps)
-tpms$V1=rownames(tpms)
+if(!all(tpms$mean_tpm==0)){
+  tpms$V1=rownames(tpms)
 tracking=left_join(tracking,tpms)
 
 colnames(tpms)[1:Nsamps]=c(paste0("rep_",1:Nsamps))
@@ -445,10 +446,19 @@ tracking$transfrag_class=ifelse(tracking$overlap_Ref,tracking$ref_biotype,tracki
 ggplot(tracking,aes(y=mean_tpm,x=reorder(transfrag_class, mean_tpm, median),fill=transfrag_class))+geom_boxplot() +scale_y_log10() + ggtitle("Mean TPM expression across transfrag class") + xlab("transfrag class")+
    theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
+}else{ #only add columns, skip plotting bc of missing expression data
+  tracking$Overlap_Ref=ifelse(tracking$overlap_Ref,"Overlap_with_Ref","Not_olap_with_Ref")
+  tracking$ref_biotype <- ref_annot$simplified_gene_biotype[match(tracking$ref_gene_name,
+                                                                ref_annot$gene_name)]
+  tracking$transfrag_class=ifelse(tracking$overlap_Ref,tracking$ref_biotype,tracking$V4)
+
+}
+
+
+
+
 ```
 
-
-## Exon level overlaps  
 
 ## Write tracking annotated   
 ```{r write_tracking_annot}
