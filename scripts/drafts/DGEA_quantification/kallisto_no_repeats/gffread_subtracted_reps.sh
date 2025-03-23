@@ -1,0 +1,1 @@
+gffread -w 'outputs/fasta/LSK_StemLinc.combined.filtered.20250127_112131.gene_name.subtracted_reps.fa' -g 'data/references/genomes/mm39.fa' 'outputs/gtf/LSK_StemLinc.combined.filtered.20250127_112131.gene_name.subtracted_reps.gtf'
