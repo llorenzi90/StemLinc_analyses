@@ -1,6 +1,6 @@
 ############################################
 ##
-## Purpose of script: explore potential splicing motifs in monoexons (miss monique in the background)
+## Purpose of script: explore potential splicing motifs in monoexons
 ##
 ## Author: Lucia Lorenzi
 ##
@@ -239,3 +239,4 @@ ggplot(merged_data,aes(x=type, y = max_combined_strength)) + geom_boxplot()+
 # 5. Generate bed file with random sequences, useful for other analyses, e.g calculate "promoters"
 # and TF binding
 # 6. Repeat analyses with only stringent set of monoexons
+# 7. Remove intronic monoexons from the analysis

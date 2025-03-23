@@ -38,12 +38,14 @@ def extract_sequences(genome, chrom, start, end, strand):
    
 def calculate_gc_content(sequence):
     """Calculate GC content of a sequence."""
+    sequence = sequence.upper() 
     gc_count = sequence.count("G") + sequence.count("C")
     return gc_count / len(sequence) if len(sequence) > 0 else 0
 
 def calculate_shannon_entropy(sequence, k=1):
     """Calculate Shannon entropy for a sequence."""
     # Count k-mers in the sequence
+    sequence = sequence.upper() 
     kmer_counts = Counter(sequence[i:i+k] for i in range(len(sequence) - k + 1))
     total_kmers = sum(kmer_counts.values())
 
@@ -269,10 +271,10 @@ def analyze_monoexons_and_random(monoexons, genome, output_prefix, gtf_file):
         # Find random region
         logging.info("Finding random region for sequence: %s", seq_id)
         random_region = find_random_region(gtf_file, seq_id, chrom, extended_start, extended_end, strand, extended_length, chromosome_sizes)
-        _, ran_start, ran_end_extended, ran_seq_id, _, _ = random_region[0].fields
-        ran_start, ran_end_extended = int(ran_start), int(ran_end_extended)
-        ran_start_extended = ran_start if strand == "+" else ran_end_extended
-        ran_end = ran_end_extended - extension if strand == "+" else ran_start + extension
+        _, ran_start_extended, ran_end_extended, ran_seq_id, _, _ = random_region[0].fields
+        ran_start_extended, ran_end_extended = int(ran_start_extended), int(ran_end_extended)
+        ran_start = ran_start_extended if strand == "+" else ran_start_extended + extension
+        ran_end = ran_end_extended - extension if strand == "+" else ran_end_extended
         
         # Add random sequence to fasta
         fasta_random[ran_seq_id] = extract_sequences(genome, chrom, ran_start_extended, ran_end_extended, strand)

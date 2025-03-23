@@ -2,7 +2,7 @@
 # 0) data prep: generate gene level bed file and merged exons bed file
 #
 # 1) compute distance to closest gene as I did before but also keep strand info
-#    and also report distance with negative values if upstream relative to lncRNA
+#    and report distance with negative values if upstream relative to lncRNA
 #    (-D option). For overlaps calculate the fraction of overlap
 #
 # 2) rules
@@ -53,7 +53,7 @@ args <- commandArgs(trailingOnly = TRUE)
 
 # Check if an input file is provided
 if (length(args) == 0) {
-  stop("Please provide the script name as a command-line argument.")
+  stop("Please provide the input files as a command-line argument.")
 }
 
 query_data_path <- args[1] # "outputs/transcriptome_characterization/LSK_StemLinc.combined/LSK_StemLinc.combined_annotated_tracking.filtered.20240930_173216.tsv"
@@ -70,6 +70,7 @@ options(scipen = 999)
 require(tidyverse)
 require(data.table)
 require(rtracklayer)
+library(trastools)
 
 # load pre-defined funcs ----
 source("scripts/drafts/compute_gene_non_redundant_exons_and_exonic_length.functions.R")
